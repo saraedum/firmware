@@ -236,6 +236,28 @@ initial_setup()
 	uci set freifunk.@settings[0].default_ah_ssid="$ah_ssid"
 	uci set freifunk.@settings[0].version="$version"
 
+	case "$mac" in
+		"fa:d1:11:79:38:32")
+			uci set freifunk.@settings[0].name="Ehinger Tor (aquarium)"
+			uci set freifunk.@settings[0].geo="48.39407126 9.98083234"
+			;;
+		"a2:f3:c1:36:cb:28")
+			uci set freifunk.@settings[0].name="Ehinger Tor (uplink)"
+			uci set freifunk.@settings[0].geo="48.39413537 9.98083770"
+			;;
+		"a2:f3:c1:36:b0:7a")
+			uci set freifunk.@settings[0].name="Ehinger Tor (uplink2)"
+			uci set freifunk.@settings[0].geo="48.39409845 9.98077333"
+			;;
+		"fa:d1:11:24:9d:80")
+			uci set freifunk.@settings[0].name="Ehinger Tor (lika)"
+			uci set freifunk.@settings[0].geo="48.39402495 9.98093963"
+			;;
+		*)
+			echo "(E) Unknown router => Leave defaults.."
+			;;
+	esac
+
 	# ------------------------------------------- #
 	# S E T U P  W I R E L E S S #
 	# ------------------------------------------- #
