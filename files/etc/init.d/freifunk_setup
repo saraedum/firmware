@@ -210,6 +210,10 @@ initial_setup()
 	uci set dropbear.@dropbear[0].PasswordAuth="off"
 	uci set dropbear.@dropbear[0].RootPasswordAuth="off"
 
+	echo "(I) Fix dropbear permissions."
+	chmod 0700 /etc/dropbear
+	chmod 0600 /etc/dropbear/authorized_keys
+
 	#get a unique MAC address to identify the node
 	local mac=`cat /sys/class/ieee80211/phy0/macaddress`
 	[ -z "$mac" -o "$mac" = "00:11:22:33:44:55" ] && {
