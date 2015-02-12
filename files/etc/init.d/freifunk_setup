@@ -268,13 +268,13 @@ initial_setup()
 	# P R I V A T E  S E T U P #
 	# ------------------------------------- #
 
-	initial_lan_setup "$lan_interface"
+	initial_lan_setup ""
 
 	# ------------------------------------- #
 	# P U B L I C  S E T U P #
 	# ------------------------------------- #
 
-	initial_freifunk_setup "bat0" "$mac"
+	initial_freifunk_setup "bat0 $lan_interface" "$mac"
 
 	# ------------------------------------- #
 	# W A N  S E T U P #
