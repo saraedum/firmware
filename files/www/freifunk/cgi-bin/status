@@ -1,6 +1,5 @@
 #!/usr/bin/haserl
-content-type: text/html
-
+<% echo -en "content-type: text/html\r\n\r\n" %>
 <!DOCTYPE html>
 <html lang="de"><head>
 <meta http-equiv="content-type" content="text/html; charset=UTF-8">
@@ -18,7 +17,12 @@ content-type: text/html
 			<a class="pure-menu-heading" href="http://<% echo -n $(uci get -q freifunk.@settings[0].default_ap_ssid) %>"><% echo -n $(uci get -q freifunk.@settings[0].default_ap_ssid) %></a>
 			<ul>
 <%
-geo=$(uci get -q freifunk.@settings[0].geo)
+contact="$(uci get -q freifunk.@settings[0].contact)"
+if [ -n "$contact" ]; then
+	echo "				<li><a href='#'>Kontakt: $contact</a></li>"
+fi
+
+geo="$(uci get -q freifunk.@settings[0].geo)"
 if [ -n "$geo" ]; then
 	lat="${geo%% *}" lon="${geo##* }"
 	echo "				<li><a href=\"https://www.openstreetmap.org?mlat=$lat&mlon=$lon&zoom=17\">Position: ${lat:0:8}N, ${lon:0:8}E</a></li>"

@@ -58,7 +58,6 @@ initial_wifi_setup()
 			uci set $h.network="${wifi_device}_mesh"
 			uci set $h.ssid="$ah_ssid"
 			uci set $h.bssid="$ah_bssid"
-			uci set $h.mcast_rate=12000
 			uci set $h.hidden=1
 
 			n=network.`uci get $h.network`
@@ -329,7 +328,6 @@ initial_setup()
 update_03_to_04()
 {
 	local prefix="fdef:17a0:ffb1:300::/64"
-	local old_ifnames=""
 	local old_cfgs=""
 
 	echo "(I) Copy/delete some files."
@@ -348,6 +346,7 @@ update_03_to_04()
 	cp /rom/etc/uhttpd.key /etc/ 2> /dev/null
 	rm /etc/config/6relayd
 	rm /etc/config/simple_tc
+	rm -rf /etc/nodogsplash
 
 	echo "(I) Update fastd configuration."
 	cp /rom/etc/config/fastd /etc/config/
@@ -362,6 +361,8 @@ update_03_to_04()
 	local wan_proto=$(uci get -q network.wan.proto)
 	local wan_ipaddr=$(uci get -q network.wan.ipaddr)
 	local wan_gateway=$(uci get -q network.wan.gateway)
+	local private_ipaddr=$(uci get -q network.private.ipaddr)
+	local private_netmask=$(uci get -q network.private.netmask)
 
 	echo "(I) Set Prefix and populate /etc/hosts."
 	uci set -q network.globals="globals"
@@ -410,13 +411,13 @@ update_03_to_04()
 		config_get ifname $cfg "ifname"
 		config_get network $cfg "network"
 
-		append old_ifnames "$ifname"
 		uci delete -q wireless.$cfg.ifname
 
 		if [ "$mode" = "adhoc" ]; then
 			uci set wireless.$cfg.ssid="$ah_ssid"
 			uci set wireless.$cfg.network="$ifname"
 			uci set wireless.$cfg.mcast_rate=12000
+			uci delete network.$ifname.ifname
 		fi
 
 		if [ "$mode" = "ap" ]; then
@@ -449,14 +450,12 @@ update_03_to_04()
 		config_get ifname $cfg "ifname"
 
 		if [ "$proto" = "batadv" ]; then
-			uci delete -q network.$cfg.auto
+			uci delete network.$cfg.auto
 		fi
 
-		if [ -n "$proto" ]; then
-			#remove old interface section
-			if [ "$old_ifnames" != "${old_ifnames/$ifname/}" ]; then
-				append old_cfgs $cfg
-			fi
+		#remove helper config for switch interfaces
+		if [ "$proto" = "none" ]; then
+			append old_cfgs $cfg
 		fi
 	}
 
@@ -498,6 +497,10 @@ update_03_to_04()
 		uci delete network.$cfg
 	done
 
+	echo "(I) Preserve previous ipaddr/netmask."
+	uci set -q network.lan.ipaddr="$private_ipaddr"
+	uci set -q network.lan.netmask="$private_netmask"
+
 	uci commit network
 
 	local switch_name="$(uci get -q network.@switch[0].name)"
@@ -530,12 +533,32 @@ update_03_to_04()
 	uci set system.@system[0].timezone='CET-1CEST,M3.5.0,M10.5.0/3'
 	uci set freifunk.@settings[0].default_ah_ssid="$ah_ssid"
 	uci set freifunk.@settings[0].access_from="$access_from"
-	uci set freifunk.@settings[0].version="$to_version"
 	uci set freifunk.@settings[0].default_ap_ssid="$default_ap_ssid"
 
 	uci commit fastd
 	uci commit system
 	uci commit freifunk
+}
+
+update_04_to_041()
+{
+	rm /etc/dnsmasq.conf
+	cp /rom/etc/uhttpd.crt /etc/ 2> /dev/null
+	cp /rom/etc/uhttpd.key /etc/ 2> /dev/null
+
+	wireless_fixup_iface() {
+		local cfg="$1" mode
+		config_get mode $cfg "mode"
+
+		if [ "$mode" = "adhoc" ]; then
+			uci delete -q wireless.$cfg.mcast_rate
+		fi
+	}
+
+	echo "(I) Update network/wireless settings."
+	config_load wireless
+	config_foreach wireless_fixup_iface wifi-iface
+	uci commit wireless
 }
 
 start()
@@ -548,27 +571,35 @@ start()
 
 	echo "(I) Start freifunk_setup"
 
-	from_version="$(uci get -q freifunk.@settings[0].version)"
-	to_version="0.4"
+	local from_version="$(uci get -q freifunk.@settings[0].version)"
+	local to_version="0.4.1"
 
 	echo "(I) Update from '$from_version' to '$to_version'"
 	case "$from_version" in
 		"0.3" | "0.3.1")
 			echo "(I) Apply update."
 			update_03_to_04
-			/etc/init.d/fastd disable
-			/etc/init.d/telnet disable
+			update_04_to_041
+			;;
+		"0.4")
+			echo "(I) Apply update."
+			update_04_to_041
 			;;
 		"")
 			echo "(I) Start initial setup."
 			initial_setup "$to_version"
-			/etc/init.d/fastd disable
-			/etc/init.d/telnet disable
 			;;
 		*)
-			echo "(E) Unknown version => Skip setup."
+			echo "(I) No configuration updater set. Only version will be updated."
 			;;
 	esac
+
+	uci set -q freifunk.@settings[0].version="$to_version"
+	uci commit -q freifunk
+
+	/etc/init.d/fastd disable
+	/etc/init.d/telnet disable
+	/etc/init.d/simple-radvd enable
 
 	#disable and remove this script
 	/etc/init.d/freifunk_setup disable
